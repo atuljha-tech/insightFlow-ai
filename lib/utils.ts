@@ -26,7 +26,7 @@ export const generateMockInsights = (): Insight[] => {
       description: 'Revenue increased by 23.5% compared to last month',
       metric: '+23.5%',
       change: 23.5,
-      confidence: 0.95  // Add this
+      confidence: 0.95  // ← ADD THIS LINE
     },
     {
       id: '2',
@@ -35,7 +35,7 @@ export const generateMockInsights = (): Insight[] => {
       description: 'Customer growth rate slowed to 8% this week',
       metric: '+8%',
       change: -2.3,
-      confidence: 0.85  // Add this
+      confidence: 0.85  // ← ADD THIS LINE
     },
     {
       id: '3',
@@ -44,7 +44,7 @@ export const generateMockInsights = (): Insight[] => {
       description: 'Profit margins remain stable at 62%',
       metric: '62%',
       change: 0.5,
-      confidence: 0.90  // Add this
+      confidence: 0.90  // ← ADD THIS LINE
     },
     {
       id: '4',
@@ -53,7 +53,7 @@ export const generateMockInsights = (): Insight[] => {
       description: 'June shows highest revenue of the year',
       metric: '$72K',
       change: 24.1,
-      confidence: 0.92  // Add this
+      confidence: 0.92  // ← ADD THIS LINE
     }
   ];
 };
