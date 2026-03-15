@@ -1,0 +1,16 @@
+hotel_name,booking_date,customer_country,room_type,nights,price_per_night,total_revenue,payment_method,rating
+Grand Plaza,2025-01-05,USA,Deluxe,3,250,750,Credit Card,4.5
+Grand Plaza,2025-01-12,UK,Standard,2,150,300,Cash,3.8
+Sunset Resort,2025-01-18,Germany,Suite,5,400,2000,PayPal,4.9
+Sunset Resort,2025-01-22,France,Deluxe,4,280,1120,Credit Card,4.2
+Grand Plaza,2025-01-28,USA,Standard,3,160,480,Debit Card,4.0
+Beach House,2025-02-03,Spain,Suite,7,350,2450,Credit Card,4.8
+Grand Plaza,2025-02-11,Canada,Deluxe,2,260,520,PayPal,4.3
+Sunset Resort,2025-02-19,Italy,Standard,3,140,420,Cash,3.5
+Beach House,2025-02-25,USA,Deluxe,4,290,1160,Credit Card,4.6
+Sunset Resort,2025-03-02,UK,Suite,3,380,1140,Debit Card,4.7
+Grand Plaza,2025-03-10,France,Standard,2,155,310,PayPal,3.9
+Beach House,2025-03-18,Germany,Deluxe,5,270,1350,Credit Card,4.4
+Sunset Resort,2025-03-25,USA,Suite,4,390,1560,Debit Card,4.9
+Beach House,2025-04-01,Spain,Standard,3,145,435,Cash,4.1
+Grand Plaza,2025-04-09,Italy,Deluxe,2,265,530,PayPal,4.2
