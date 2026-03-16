@@ -33,24 +33,35 @@ export async function POST(request: NextRequest) {
 // Get the active table (the one that was uploaded)
 let activeTable = dbManager.getActiveTable();
 
-// If no active table or it's 'sales', check for ANY uploaded table
+// If no active table or it's a default table, find the most recently uploaded table
 if (!activeTable || activeTable === 'sales' || activeTable === 'employees') {
   try {
     const tables = dbManager.getTables();
     console.log('📋 Available tables:', tables);
     
-    // Find the MOST RECENT uploaded table (not system tables)
+    // Filter out system tables
     const uploadedTables = tables.filter(t => 
       t !== 'sales' && 
       t !== 'sqlite_sequence'
     );
     
     if (uploadedTables.length > 0) {
-      // Use the most recently created table (last in the list)
-      activeTable = uploadedTables[uploadedTables.length - 1];
-      console.log(`📌 Using uploaded table: ${activeTable}`);
+      // Sort tables by creation time (assuming newer tables have timestamps)
+      // This will work with your table naming convention: data_filename_timestamp
+      const sortedTables = uploadedTables.sort((a, b) => {
+        // Extract timestamp from table names if they follow data_filename_timestamp format
+        const timestampA = a.split('_').pop() || '0';
+        const timestampB = b.split('_').pop() || '0';
+        return parseInt(timestampB) - parseInt(timestampA);
+      });
+      
+      // Use the most recent table
+      activeTable = sortedTables[0];
+      console.log(`📌 Using most recent uploaded table: ${activeTable}`);
     } else {
+      // No uploaded tables found, use sales as fallback
       activeTable = 'sales';
+      console.log('📌 No uploaded tables found, using sales as fallback');
     }
   } catch (e) {
     console.log('Could not check for uploaded tables:', e);
@@ -58,7 +69,8 @@ if (!activeTable || activeTable === 'sales' || activeTable === 'employees') {
   }
 }
 
-console.log(`📊 Using table: ${activeTable}`);
+console.log(`📊 Final selected table: ${activeTable}`);
+
 if (!activeTable) {
   return NextResponse.json(
     { error: 'No active table found. Please upload a CSV first.' },

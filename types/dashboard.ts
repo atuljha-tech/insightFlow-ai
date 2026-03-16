@@ -29,6 +29,7 @@ export interface ChartData {
  * Configuration for rendering a chart
  */
 export interface ChartConfig {
+  unit: string;
   /** Type of chart to render */
   type: 'bar' | 'line' | 'pie' | 'area' | 'metric' | 'table';
   

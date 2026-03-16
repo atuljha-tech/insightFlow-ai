@@ -57,9 +57,10 @@ import {
   Star,
   Zap,
   Shield,
-  Crown
+  Crown,
+  AlertCircle
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 interface ChartRendererProps {
   config: ChartConfig;
@@ -114,6 +115,10 @@ const animations = `
     from { transform: rotate(-180deg) scale(0.8); opacity: 0; }
     to { transform: rotate(0) scale(1); opacity: 1; }
   }
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
 `;
 
 export default function ChartRenderer({
@@ -129,6 +134,7 @@ export default function ChartRenderer({
   const [showInsights, setShowInsights] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Inject animations
   useEffect(() => {
@@ -148,12 +154,33 @@ export default function ChartRenderer({
     );
   };
 
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
+  const formatLargeNumber = (value: number | null | undefined): string => {
+    if (value === undefined || value === null || isNaN(value)) return '0';
+    
+    const num = Number(value);
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    });
+  };
+
+  const calculateChange = (current: number, previous: number): number => {
+    if (!previous) return 0;
+    return ((current - previous) / previous) * 100;
+  };
+
   const renderEmptyState = () => (
     <div className="flex flex-col items-center justify-center h-full min-h-[450px] bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl border-2 border-dashed border-gray-700/50 backdrop-blur-sm">
       <div className="relative mb-6">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-500/30 to-purple-500/30 rounded-full blur-3xl animate-pulse" />
         <div className="relative w-28 h-28 rounded-3xl bg-gradient-to-br from-gray-800 to-gray-700 flex items-center justify-center shadow-2xl">
-          <BarChart2 className="w-14 h-14 text-gray-400" />
+          <AlertCircle className="w-14 h-14 text-gray-400" />
         </div>
       </div>
       <p className="text-gray-300 text-lg font-medium mb-2">No data available</p>
@@ -195,10 +222,7 @@ export default function ChartRenderer({
             </div>
             <span className="text-lg font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
               {typeof entry.value === 'number'
-                ? entry.value.toLocaleString(undefined, {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 2
-                })
+                ? formatLargeNumber(entry.value)
                 : entry.value
               }
             </span>
@@ -209,7 +233,7 @@ export default function ChartRenderer({
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-500 font-medium">Total</span>
               <span className="text-lg font-bold text-white">
-                {payload.reduce((sum: number, entry: any) => sum + (entry.value || 0), 0).toLocaleString()}
+                {formatLargeNumber(payload.reduce((sum: number, entry: any) => sum + (entry.value || 0), 0))}
               </span>
             </div>
           </div>
@@ -431,7 +455,6 @@ export default function ChartRenderer({
 
     return (
       <div className="relative w-full h-full flex flex-col">
-        {/* 3D Donut Chart */}
         <div className="flex-1 relative">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
@@ -452,7 +475,7 @@ export default function ChartRenderer({
                 </filter>
               </defs>
 
-              {/* Outer ring (for depth effect) */}
+              {/* Outer ring for depth */}
               <Pie
                 data={pieData}
                 cx="50%"
@@ -529,7 +552,7 @@ export default function ChartRenderer({
                 dominantBaseline="middle"
                 className="text-2xl font-bold fill-white"
               >
-                {total.toLocaleString()}
+                {formatLargeNumber(total)}
               </text>
               <text
                 x="50%"
@@ -569,7 +592,7 @@ export default function ChartRenderer({
                 </div>
                 <div className="text-right">
                   <span className="text-sm font-bold text-white">{percentage}%</span>
-                  <span className="text-xs text-gray-500 ml-2">({item.value})</span>
+                  <span className="text-xs text-gray-500 ml-2">({formatLargeNumber(item.value)})</span>
                 </div>
               </div>
             );
@@ -588,27 +611,37 @@ export default function ChartRenderer({
     const currentValue = Number(firstItem[numericKey]) || 0;
     const secondItem = config.data[1];
     const previousValue = secondItem ? Number(secondItem[numericKey]) || 0 : 0;
-    const change = previousValue ? ((currentValue - previousValue) / previousValue) * 100 : 0;
+    const change = calculateChange(currentValue, previousValue);
 
-    // Additional metrics for the mini chart
-    const historicalData = config.data.slice(0, 7).map(item => ({
-      value: Number(item[numericKey]) || 0
+    // Historical data for sparkline
+    const historicalData = config.data.slice(0, 10).map(item => ({
+      value: Number(item[numericKey]) || 0,
+      date: item.name || ''
     })).reverse();
 
-    const getTrendIcon = () => {
-      if (change > 0) return <ArrowUpRight className="w-8 h-8" />;
-      if (change < 0) return <ArrowDownRight className="w-8 h-8" />;
-      return <Minus className="w-8 h-8" />;
+    const getMetricIcon = () => {
+      const iconProps = { className: "w-8 h-8 text-white" };
+      
+      if (config.title?.toLowerCase().includes('revenue')) return <DollarSign {...iconProps} />;
+      if (config.title?.toLowerCase().includes('user')) return <Users {...iconProps} />;
+      if (config.title?.toLowerCase().includes('order')) return <ShoppingCart {...iconProps} />;
+      if (config.title?.toLowerCase().includes('product')) return <Package {...iconProps} />;
+      if (config.title?.toLowerCase().includes('satisfaction')) return <Heart {...iconProps} />;
+      if (config.title?.toLowerCase().includes('rating')) return <Star {...iconProps} />;
+      return <Target {...iconProps} />;
     };
 
-    const getMetricIcon = () => {
-      if (config.title?.toLowerCase().includes('revenue')) return <DollarSign className="w-12 h-12" />;
-      if (config.title?.toLowerCase().includes('user')) return <Users className="w-12 h-12" />;
-      if (config.title?.toLowerCase().includes('order')) return <ShoppingCart className="w-12 h-12" />;
-      if (config.title?.toLowerCase().includes('product')) return <Package className="w-12 h-12" />;
-      if (config.title?.toLowerCase().includes('satisfaction')) return <Heart className="w-12 h-12" />;
-      if (config.title?.toLowerCase().includes('rating')) return <Star className="w-12 h-12" />;
-      return <Target className="w-12 h-12" />;
+    const getTrendIcon = () => {
+      const iconProps = { className: "w-5 h-5" };
+      if (change > 0) return <ArrowUpRight {...iconProps} />;
+      if (change < 0) return <ArrowDownRight {...iconProps} />;
+      return <Minus {...iconProps} />;
+    };
+
+    const getTrendColor = () => {
+      if (change > 0) return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+      if (change < 0) return 'text-rose-400 bg-rose-500/10 border-rose-500/20';
+      return 'text-gray-400 bg-gray-500/10 border-gray-500/20';
     };
 
     return (
@@ -622,7 +655,7 @@ export default function ChartRenderer({
 
         {/* Content */}
         <div className="relative flex-1 flex flex-col">
-          {/* Icon and title */}
+          {/* Header */}
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center gap-4">
               <div className="relative">
@@ -632,7 +665,7 @@ export default function ChartRenderer({
                 </div>
               </div>
               <div>
-                <p className="text-gray-400 text-sm font-medium">{config.title}</p>
+                <p className="text-gray-400 text-sm font-medium">{config.title || 'Metric'}</p>
                 {config.description && (
                   <p className="text-gray-500 text-xs mt-1">{config.description}</p>
                 )}
@@ -651,34 +684,24 @@ export default function ChartRenderer({
           {/* Main value */}
           <div className="relative mb-8">
             <div className="text-8xl font-bold bg-gradient-to-r from-white via-gray-200 to-gray-300 bg-clip-text text-transparent">
-              {typeof currentValue === 'number'
-                ? currentValue.toLocaleString(undefined, {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 0
-                })
-                : String(currentValue)
-              }
+              {formatLargeNumber(currentValue)}
             </div>
 
             {/* Change indicator */}
             <div className={cn(
-              "absolute top-0 right-0 flex items-center gap-3 px-6 py-3 rounded-2xl",
-              change > 0
-                ? "bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30"
-                : change < 0
-                  ? "bg-gradient-to-r from-red-500/20 to-pink-500/20 border border-red-500/30"
-                  : "bg-gray-800/50 border border-gray-700"
+              "absolute top-0 right-0 flex items-center gap-3 px-6 py-3 rounded-2xl border",
+              getTrendColor()
             )}>
               <div className={cn(
                 "p-2 rounded-xl",
-                change > 0 ? "bg-green-500/20" : change < 0 ? "bg-red-500/20" : "bg-gray-700"
+                change > 0 ? "bg-emerald-500/20" : change < 0 ? "bg-rose-500/20" : "bg-gray-700"
               )}>
                 {getTrendIcon()}
               </div>
               <div>
                 <div className={cn(
                   "text-2xl font-bold",
-                  change > 0 ? "text-green-400" : change < 0 ? "text-red-400" : "text-gray-400"
+                  change > 0 ? "text-emerald-400" : change < 0 ? "text-rose-400" : "text-gray-400"
                 )}>
                   {change > 0 ? '+' : ''}{change.toFixed(1)}%
                 </div>
@@ -687,49 +710,53 @@ export default function ChartRenderer({
             </div>
           </div>
 
-          {/* Mini sparkline chart */}
-          <div className="relative h-24 mt-auto">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={historicalData}>
-                <defs>
-                  <linearGradient id="sparkline-gradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.2} />
-                  </linearGradient>
-                </defs>
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#6366f1"
-                  strokeWidth={2}
-                  fill="url(#sparkline-gradient)"
-                  dot={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          {/* Sparkline chart */}
+          {historicalData.length > 1 && (
+            <div className="relative h-24 mt-auto">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={historicalData}>
+                  <defs>
+                    <linearGradient id="sparkline-gradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#6366f1" stopOpacity={0.8} />
+                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.2} />
+                    </linearGradient>
+                  </defs>
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#6366f1"
+                    strokeWidth={2}
+                    fill="url(#sparkline-gradient)"
+                    dot={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
 
           {/* Additional insights */}
-          <div className="flex gap-4 mt-6 pt-6 border-t border-gray-800">
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 mb-1">Average</p>
-              <p className="text-lg font-semibold text-white">
-                {(historicalData.reduce((sum, item) => sum + item.value, 0) / historicalData.length).toFixed(0)}
-              </p>
+          {historicalData.length > 0 && (
+            <div className="flex gap-4 mt-6 pt-6 border-t border-gray-800">
+              <div className="flex-1">
+                <p className="text-xs text-gray-500 mb-1">Average</p>
+                <p className="text-lg font-semibold text-white">
+                  {formatLargeNumber(historicalData.reduce((sum, item) => sum + item.value, 0) / historicalData.length)}
+                </p>
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-gray-500 mb-1">Peak</p>
+                <p className="text-lg font-semibold text-white">
+                  {formatLargeNumber(Math.max(...historicalData.map(d => d.value)))}
+                </p>
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-gray-500 mb-1">Lowest</p>
+                <p className="text-lg font-semibold text-white">
+                  {formatLargeNumber(Math.min(...historicalData.map(d => d.value)))}
+                </p>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 mb-1">Peak</p>
-              <p className="text-lg font-semibold text-white">
-                {Math.max(...historicalData.map(d => d.value)).toFixed(0)}
-              </p>
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 mb-1">Lowest</p>
-              <p className="text-lg font-semibold text-white">
-                {Math.min(...historicalData.map(d => d.value)).toFixed(0)}
-              </p>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     );
@@ -805,7 +832,7 @@ export default function ChartRenderer({
                       >
                         <div className="flex items-center gap-2">
                           {isNumeric && <span className="text-gray-500">#</span>}
-                          {value?.toString() || '-'}
+                          {isNumeric ? formatLargeNumber(Number(value)) : value?.toString() || '-'}
                         </div>
                       </td>
                     );
@@ -826,7 +853,7 @@ export default function ChartRenderer({
                           isNumeric ? "text-blue-400" : "text-gray-500"
                         )}
                       >
-                        {isNumeric ? totals[col]?.toLocaleString() : '—'}
+                        {isNumeric ? formatLargeNumber(totals[col]) : '—'}
                       </td>
                     );
                   })}
@@ -854,7 +881,10 @@ export default function ChartRenderer({
           </div>
 
           <div className="flex items-center gap-2">
-            <button className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors">
+            <button 
+              onClick={toggleFullscreen}
+              className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+            >
               <Maximize2 className="w-4 h-4 text-gray-500" />
             </button>
           </div>
@@ -993,6 +1023,7 @@ export default function ChartRenderer({
     <div
       className={cn(
         "group relative bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 rounded-2xl border border-gray-800/50 overflow-hidden transition-all duration-500 hover:shadow-2xl hover:shadow-blue-500/10 hover:border-gray-700",
+        isFullscreen && "fixed inset-4 z-50",
         className
       )}
       onMouseEnter={() => setIsHovered(true)}
@@ -1096,6 +1127,14 @@ export default function ChartRenderer({
             </button>
           )}
 
+          {/* Fullscreen */}
+          <button
+            onClick={toggleFullscreen}
+            className="p-2.5 rounded-xl hover:bg-gray-800/80 text-gray-400 hover:text-white transition-all duration-200"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+
           {/* More options */}
           <button className="p-2.5 rounded-xl hover:bg-gray-800/80 text-gray-400 hover:text-white transition-all duration-200">
             <MoreVertical className="w-4 h-4" />
@@ -1104,7 +1143,10 @@ export default function ChartRenderer({
       </div>
 
       {/* Chart */}
-      <div className="relative p-8">
+      <div className={cn(
+        "relative p-8",
+        isFullscreen && "h-[calc(100vh-200px)]"
+      )}>
         <div className="w-full h-[500px]">
           <ResponsiveContainer width="100%" height="100%">
             {renderChart()}
