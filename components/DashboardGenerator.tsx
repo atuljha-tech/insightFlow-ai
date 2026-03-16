@@ -81,14 +81,14 @@ export default function DashboardGenerator({ data, query, onRefresh }: Dashboard
 
     const chartTypes = ['bar', 'line', 'pie', 'area'];
     const selectedType = type || chartTypes[Math.floor(Math.random() * chartTypes.length)];
-
-    const newChart: ChartConfig = {
-      type: selectedType as any,
-      title: `${selectedType.charAt(0).toUpperCase() + selectedType.slice(1)} Analysis by ${categoricalColumns[0] || 'Category'}`,
-      data: data.slice(0, 10),
-      description: `Auto-generated ${selectedType} chart showing ${numericColumns[0] || 'values'} distribution`,
-      footer: undefined
-    };
+const newChart: ChartConfig = {
+  type: selectedType as any,
+  title: `${selectedType.charAt(0).toUpperCase() + selectedType.slice(1)} Analysis by ${categoricalColumns[0] || 'Category'}`,
+  data: data.slice(0, 10),
+  description: `Analysis of ${categoricalColumns[0] || 'categories'} showing distribution across ${data.length} records`,
+  footer: undefined,
+  unit: '' // Add this line - provide a default empty string or appropriate unit
+};
 
     setCharts([...charts, newChart]);
     setShowAddMenu(false);

@@ -148,7 +148,6 @@ class ChartIntelligenceEngine {
 
     // Rule 2: Time series data
     if (hasTimeData || dateColumns.length > 0) {
-      // Check if we have enough data points for a meaningful trend
       if (rowCount >= 3) {
         return {
           type: 'line',
@@ -240,7 +239,7 @@ class ChartIntelligenceEngine {
       }
     }
 
-    // Rule 5: Default to bar chart for most comparisons
+    // Rule 5: Default to bar chart
     if (categoricalColumns.length > 0 && numericColumns.length > 0) {
       return {
         type: 'bar',
@@ -251,7 +250,7 @@ class ChartIntelligenceEngine {
       };
     }
 
-    // Rule 6: Table for complex/multi-dimensional data
+    // Rule 6: Table for complex data
     if (categoricalColumns.length > 1 && numericColumns.length > 1) {
       return {
         type: 'table',
@@ -293,6 +292,8 @@ class ChartIntelligenceEngine {
         return `Top ${dimensionStr} by ${metricStr}`;
       case 'detailed':
         return `Detailed ${metricStr} Analysis by ${dimensionStr}`;
+      case 'metric':
+        return `${metricStr}`;
       default:
         return `${metricStr} Analysis by ${dimensionStr}`;
     }
@@ -337,7 +338,6 @@ class ChartIntelligenceEngine {
     
     if (!categoryColumn || !valueColumn) return data;
 
-    // Aggregate if needed
     const aggregated = new Map<string, number>();
     
     data.forEach(row => {
@@ -365,7 +365,6 @@ class ChartIntelligenceEngine {
     
     if (!dateColumn) return data;
 
-    // Sort by date
     return [...data]
       .sort((a, b) => new Date(a[dateColumn]).getTime() - new Date(b[dateColumn]).getTime())
       .map(row => {
@@ -385,7 +384,6 @@ class ChartIntelligenceEngine {
     
     if (!categoryColumn) return data;
 
-    // Aggregate by category
     const aggregated = new Map<string, any>();
     
     data.forEach(row => {
@@ -418,7 +416,6 @@ class ChartIntelligenceEngine {
       return [{ name: 'Value', value: 0 }];
     }
 
-    // Sum or average based on context
     const total = data.reduce((sum, row) => sum + (Number(row[metricColumn]) || 0), 0);
     
     return [{
@@ -433,16 +430,14 @@ class ChartIntelligenceEngine {
   generateDashboardSuggestions(data: any[], query: string): ChartConfig[] {
     const suggestions: ChartConfig[] = [];
     
-    // Get columns from first row
     if (data.length === 0) return suggestions;
+    
     const columns = Object.keys(data[0]);
-
-    // Get numeric columns
     const numericColumns = this.getNumericColumns(data[0], columns);
     const categoricalColumns = this.getCategoricalColumns(data[0], columns);
     const dateColumns = this.getDateColumns(data[0], columns);
 
-    // 1. Main chart based on query
+    // Main chart based on query
     const mainSuggestion = this.suggestChartType({
       data,
       columns,
@@ -450,17 +445,20 @@ class ChartIntelligenceEngine {
     });
     
     suggestions.push({
-      type: mainSuggestion.type as any,
+      type: mainSuggestion.type,
       title: mainSuggestion.title,
       data: this.prepareDataForChart(data, mainSuggestion.type, {
         categoryColumn: categoricalColumns[0],
         valueColumns: numericColumns.slice(0, 2),
         dateColumn: dateColumns[0],
         metricColumn: numericColumns[0]
-      })
+      }),
+      xAxis: categoricalColumns[0],
+      yAxis: numericColumns[0],
+      unit: ''
     });
 
-    // 2. Secondary chart - distribution if applicable
+    // Secondary chart - distribution
     if (categoricalColumns.length > 0 && numericColumns.length > 0) {
       suggestions.push({
         type: 'pie',
@@ -468,11 +466,14 @@ class ChartIntelligenceEngine {
         data: this.prepareDataForChart(data, 'pie', {
           categoryColumn: categoricalColumns[0],
           valueColumn: numericColumns[0]
-        })
+        }),
+        xAxis: categoricalColumns[0],
+        yAxis: numericColumns[0],
+        unit: ''
       });
     }
 
-    // 3. Tertiary chart - trend if time data exists
+    // Tertiary chart - trend
     if (dateColumns.length > 0 && numericColumns.length > 0) {
       suggestions.push({
         type: 'line',
@@ -480,7 +481,10 @@ class ChartIntelligenceEngine {
         data: this.prepareDataForChart(data, 'line', {
           dateColumn: dateColumns[0],
           valueColumns: [numericColumns[0]]
-        })
+        }),
+        xAxis: dateColumns[0],
+        yAxis: numericColumns[0],
+        unit: ''
       });
     }
 
@@ -488,7 +492,7 @@ class ChartIntelligenceEngine {
   }
 
   /**
-   * Extract intent from query (simple version)
+   * Extract intent from query
    */
   private extractIntentFromQuery(query: string): string {
     const q = query.toLowerCase();
@@ -496,7 +500,7 @@ class ChartIntelligenceEngine {
     if (q.includes('trend') || q.includes('over time') || q.includes('monthly') || q.includes('daily')) {
       return 'trend';
     }
-    if (q.includes('compare') || q.includes('vs') || q.includes('versus') || q.includes('versus')) {
+    if (q.includes('compare') || q.includes('vs') || q.includes('versus')) {
       return 'comparison';
     }
     if (q.includes('distribut') || q.includes('breakdown') || q.includes('percentage')) {
